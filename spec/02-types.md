@@ -245,7 +245,7 @@ class ConfigError extends Error {
 
 ```typescript
 // Classes
-export { ExpressACL } from './acl';
+export { ACL } from './acl';
 export { MemoryAdapter } from './adapters/memory.adapter';
 
 // Adapter interface (type-only)
@@ -254,6 +254,7 @@ export type { ACLAdapter } from './adapters/adapter.interface';
 // Types (type-only)
 export type {
   ACLOptions,
+  CheckOptions,
   RoleDefinition,
   RoleConfig,
   UpdateRoleOptions,

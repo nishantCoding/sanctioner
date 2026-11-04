@@ -1,8 +1,16 @@
-# Plan: O(1) Express ACL npm Package
+# Plan: O(1) ACL Package (Framework-Agnostic Core + Express Middleware)
 
 ## Context
 
 Custom ACL middleware achieves O(1) route lookups via `Map` + object property access. The npm `acl` package (OptimalBits) is dynamic but involves O(n) iteration and backend I/O per request. This package combines both: O(1) runtime checks, central config, access-as-primitive design, with pluggable storage (memory / Redis).
+
+**Framework strategy:** The core (registries, lookup, adapters) is framework-agnostic. Express middleware ships in the same package as a thin wrapper. Other frameworks (Fastify, Hono) get separate packages later — no forced installs.
+
+```
+acl-o1              — core: ACL class, check(), registries, adapters + Express middleware
+acl-o1-fastify      — Fastify plugin (future, peerDep on acl-o1)
+acl-o1-hono         — Hono middleware (future, peerDep on acl-o1)
+```
 
 ## Core Principle
 
@@ -20,7 +28,7 @@ Access is the primitive — it matches what an admin toggles on/off per user.
 Role is sugar — a named bundle of accesses.
 Everything resolves to: does the user hold an access that covers this route?
 
-**O(1) guarantee:** Regardless of adapter (memory or Redis), the check always runs against in-memory precomputed maps. Redis is never hit at request time.
+**O(1) guarantee:** Regardless of adapter (memory or Redis), the check always runs against an in-memory precomputed Set of composite keys. Redis is never hit at request time.
 
 ---
 
@@ -44,20 +52,34 @@ Everything resolves to: does the user hold an access that covers this route?
                      │ builds / rebuilds
                      ▼
 ┌─────────────────────────────────────────────────┐
-│          In-Memory Lookup Maps (O(1))            │
-│  routeAccesses: route → Set<access>              │
-│  routeRoles:    route → Set<role>                │
+│       In-Memory Composite Key Set (O(1))         │
+│  allowed: Set<string>                            │
+│    "GET /enterprises/emps admin"                 │
+│    "GET /enterprises/emps staff"                 │
+│    "GET /enterprises/emps viewEmployees"         │
+│  wildcardRoles: Set<string>                      │
+│  knownRoutes: Set<string>                        │
 └────────────────────┬────────────────────────────┘
                      │ used by
                      ▼
 ┌─────────────────────────────────────────────────┐
-│              Express Middleware                   │
-│  acl.authorize({ role, accesses })               │
-│  O(1) check: Map.get() + Set.has()              │
+│          Framework-Agnostic check()              │
+│  acl.check({ method, path, role/accesses })     │
+│  O(1): Set.has("METHOD /path role") → boolean   │
+└────────────────────┬────────────────────────────┘
+                     │ wrapped by
+                     ▼
+┌─────────────────────────────────────────────────┐
+│          Framework Middleware (thin)              │
+│  Express: acl.authorize({ role: (req) => ... }) │
+│  Fastify/Hono/custom: use check() directly      │
 └─────────────────────────────────────────────────┘
 ```
 
-**Key invariant:** Middleware ONLY reads the in-memory maps. Never touches the adapter at request time.
+**Key invariants:**
+- `check()` ONLY reads the in-memory Set. Never touches the adapter at request time.
+- `check()` takes plain strings, returns boolean. Zero framework dependency.
+- Framework middleware is a thin wrapper: extract from request → call `check()` → respond.
 
 ---
 
@@ -68,9 +90,9 @@ Everything resolves to: does the user hold an access that covers this route?
 Everything in-process. Source of truth = the in-memory maps themselves.
 
 ```typescript
-const acl = new ExpressACL();
+const acl = new ACL();
 // or explicitly:
-const acl = new ExpressACL({ adapter: new MemoryAdapter() });
+const acl = new ACL({ adapter: new MemoryAdapter() });
 ```
 
 ### RedisAdapter
@@ -78,9 +100,9 @@ const acl = new ExpressACL({ adapter: new MemoryAdapter() });
 Redis is the source of truth. In-memory maps are a cache.
 
 ```typescript
-import { RedisAdapter } from 'express-acl-o1/redis';
+import { RedisAdapter } from 'acl-o1/redis';
 
-const acl = new ExpressACL({
+const acl = new ACL({
   adapter: new RedisAdapter(redisClient, { prefix: 'acl:' }),
 });
 ```
@@ -115,14 +137,18 @@ Instance B receives pub/sub message
 
 ```typescript
 interface ACLAdapter {
-  // Persist
+  // Persist config
   saveAccess(name: string, routes: string[]): Promise<void>;
   saveRole(name: string, config: RoleConfig): Promise<void>;
   removeAccess(name: string, routes?: string[]): Promise<void>;
   removeRole(name: string): Promise<void>;
 
+  // Persist user assignments (managed mode)
+  saveUserAssignment(userId: string, assignment: { roles?: string[]; accesses?: string[] }): Promise<void>;
+  removeUserAssignment(userId: string): Promise<void>;
+
   // Load (startup)
-  loadAll(): Promise<{ accesses: AccessMap, roles: RoleMap }>;
+  loadAll(): Promise<{ accesses: AccessMap, roles: RoleMap, users: UserAssignments }>;
 
   // Sync (multi-instance)
   subscribe(onChanged: () => void): Promise<void>;
@@ -139,16 +165,16 @@ Anyone can write a custom adapter (MongoDB, PostgreSQL, etc.) by implementing th
 ### Constructor
 
 ```typescript
-import { ExpressACL } from 'express-acl-o1';
+import { ACL } from 'acl-o1';
 
-const acl = new ExpressACL({
+const acl = new ACL({
   defaultPolicy: 'deny',   // 'deny' (default) | 'allow'
   mutable: true,            // true (default) | false
   adapter: new MemoryAdapter(),  // default
 });
 
 // With Redis
-const acl = new ExpressACL({
+const acl = new ACL({
   adapter: new RedisAdapter(redisClient, { prefix: 'acl:' }),
 });
 
@@ -231,7 +257,58 @@ acl.lock();
 // After this, all mutation methods throw
 ```
 
-### Middleware
+### check() — Framework-Agnostic Authorization
+
+The core authorization method. Takes plain strings, returns a boolean. No framework dependency.
+
+```typescript
+interface CheckOptions {
+  method: string;           // 'GET', 'POST', etc.
+  path: string;             // Express route pattern: '/enterprises/emps/:id'
+  role?: string;            // single role name
+  accesses?: string[];      // access names (for custom users)
+  userId?: string;          // for managed mode
+}
+
+acl.check({ method: 'GET', path: '/enterprises/emps', role: 'admin' });
+// → true
+
+acl.check({ method: 'GET', path: '/enterprises/emps', accesses: ['viewEmployees'] });
+// → true
+
+acl.check({ method: 'DELETE', path: '/enterprises/emps/:id', role: 'staff' });
+// → false
+```
+
+**Logic:**
+1. Build route key: `method + " " + path`
+2. If route key not in `knownRoutes` → return based on `defaultPolicy` (`deny` → false, `allow` → true)
+3. If `userId` provided → look up managed assignments → check each assigned role/access via `allowed.has(routeKey + " " + role/access)`
+4. Else if `role` provided → `wildcardRoles.has(role) || allowed.has(routeKey + " " + role)` → O(1)
+5. Else if `accesses` provided → `accesses.some(a => allowed.has(routeKey + " " + a))` → O(A), each O(1)
+6. Else → false (no identity)
+
+**Single role = single `Set.has()` = O(1). Multiple accesses = A × `Set.has()` = O(A) where A is the user's access count (typically 1-5).**
+
+**Any framework can use this directly:**
+```typescript
+// Fastify
+fastify.addHook('onRequest', (req, reply, done) => {
+  const allowed = acl.check({ method: req.method, path: req.routeOptions.url, role: req.decoded.role });
+  allowed ? done() : reply.status(403).send({ error: 'Forbidden' });
+});
+
+// Hono
+app.use('*', async (c, next) => {
+  const allowed = acl.check({ method: c.req.method, path: c.req.routePath, role: c.get('role') });
+  if (!allowed) return c.json({ error: 'Forbidden' }, 403);
+  await next();
+});
+```
+
+### Express Middleware (built-in convenience wrapper)
+
+Thin wrapper around `check()` for Express. Ships in the same package.
 
 ```typescript
 // Global middleware
@@ -244,11 +321,18 @@ app.use(acl.authorize({
 }));
 ```
 
-Middleware logic:
-1. Build route key: `req.method + " " + req.route.path`
-2. If `role` extractor returns a value → `routeRoles.get(routeKey)?.has(role)` → O(1)
-3. Else if `accesses` extractor returns a value → convert to Set once per request, then `accesses.some(a => routeAccesses.get(routeKey)?.has(a))` → O(A), each O(1)
-4. Else → 403 (no identity)
+`authorize()` internally:
+```typescript
+(req, res, next) => {
+  const routePath = (basePath ?? '') + req.route.path;
+  const role = opts.role?.(req);
+  const accesses = opts.accesses?.(req);
+  const userId = opts.userId?.(req);
+
+  const allowed = acl.check({ method: req.method, path: routePath, role, accesses, userId });
+  allowed ? next() : denied(req, res);
+}
+```
 
 Per-route usage:
 ```typescript
@@ -353,24 +437,83 @@ Useful for admin dashboards and JWT issuing.
 
 ## Precomputation
 
-### In-memory maps (rebuilt on every config change):
+### Internal structures (rebuilt on every config change):
+
+**`allowed`: `Set<string>`** — single flat Set of composite keys.
 
 ```
-routeAccesses: Map<string, Set<string>>
-  "GET /enterprises/emps" → Set { "viewEmployees" }
-  "POST /clinics/emps/register-and-employ" → Set { "manageEmployees" }
+Format: "METHOD /path role-or-access"
 
-routeRoles: Map<string, Set<string>>
-  "GET /enterprises/emps" → Set { "staff", "admin", "superAdmin" }
-  "POST /clinics/emps/register-and-employ" → Set { "admin", "superAdmin" }
+"GET /enterprises/emps viewEmployees"
+"GET /enterprises/emps/:id viewEmployees"
+"GET /enterprises/emps staff"
+"GET /enterprises/emps/:id staff"
+"GET /enterprises/emps admin"
+"GET /enterprises/emps/:id admin"
+"POST /clinics/emps/register-and-employ manageEmployees"
+"POST /clinics/emps/register-and-employ admin"
 ```
+
+Both roles and accesses live in the same Set. A single `Set.has()` answers the question.
+
+**`wildcardRoles`: `Set<string>`** — roles with `'*'` (all routes). Checked before `allowed`.
+
+**`knownRoutes`: `Set<string>`** — all registered route keys (e.g., `"GET /enterprises/emps"`). Used to distinguish "route not registered" (→ `defaultPolicy`) from "route registered but user not allowed" (→ deny).
 
 ### Build process:
 
-1. For each access, add it to `routeAccesses` for each of its routes
-2. For each role, resolve its full access set (own + inherited via hierarchy)
-3. For each role's resolved accesses, find all routes → add role to `routeRoles` for those routes
+1. Clear `allowed`, `wildcardRoles`, `knownRoutes`
+2. For each access → for each route in access:
+   - Add `"METHOD /path accessName"` to `allowed`
+   - Add `"METHOD /path"` to `knownRoutes`
+3. For each role:
+   - If wildcard → add to `wildcardRoles`, skip
+   - Resolve full access set (own + inherited via hierarchy)
+   - For each resolved access → for each route in access:
+     - Add `"METHOD /path roleName"` to `allowed`
 4. Hierarchy flattening: walk ancestor chain, collect all accesses, detect circular refs
+
+### Example build:
+
+```
+acl.access('viewEmployees', ['GET /enterprises/emps', 'GET /enterprises/emps/:id'])
+acl.access('manageEmployees', ['POST /clinics/emps/register-and-employ'])
+acl.role('staff', ['viewEmployees'])
+acl.role('admin', { inherits: 'staff', accesses: ['manageEmployees'] })
+acl.role('superAdmin', '*')
+
+→ allowed Set:
+  "GET /enterprises/emps viewEmployees"
+  "GET /enterprises/emps/:id viewEmployees"
+  "POST /clinics/emps/register-and-employ manageEmployees"
+  "GET /enterprises/emps staff"
+  "GET /enterprises/emps/:id staff"
+  "GET /enterprises/emps admin"                              ← inherited from staff
+  "GET /enterprises/emps/:id admin"                          ← inherited from staff
+  "POST /clinics/emps/register-and-employ admin"
+
+→ wildcardRoles: Set { "superAdmin" }
+
+→ knownRoutes: Set { "GET /enterprises/emps", "GET /enterprises/emps/:id", "POST /clinics/emps/register-and-employ" }
+```
+
+### Check examples:
+
+```
+acl.check({ method: 'GET', path: '/enterprises/emps', role: 'admin' })
+  → wildcardRoles.has('admin')? No
+  → allowed.has('GET /enterprises/emps admin')? Yes → true
+
+acl.check({ method: 'GET', path: '/enterprises/emps', role: 'superAdmin' })
+  → wildcardRoles.has('superAdmin')? Yes → true (skip Set lookup)
+
+acl.check({ method: 'GET', path: '/enterprises/emps', accesses: ['deletePatients', 'viewEmployees'] })
+  → allowed.has('GET /enterprises/emps deletePatients')? No
+  → allowed.has('GET /enterprises/emps viewEmployees')? Yes → true
+
+acl.check({ method: 'POST', path: '/clinics/emps/register-and-employ', role: 'staff' })
+  → allowed.has('POST /clinics/emps/register-and-employ staff')? No → false
+```
 
 ### Rebuild trigger:
 
@@ -439,7 +582,7 @@ Traditional ACL is resource-centric: each resource holds a list of subjects and 
 | Model | Resource-centric: route → [accesses] | Role-centric: role → [resource + permissions] |
 | Roles | Optional sugar (bundles accesses) | Required |
 | Custom users | Direct accesses, no role needed | Must create per-user roles |
-| Lookup | O(1) — Map + Set, always in-memory | O(n) — iterate roles, backend I/O per request |
+| Lookup | O(1) — single Set.has() on composite key | O(n) — iterate roles, backend I/O per request |
 | Storage | Memory (default) or Redis (persistent) | Redis / MongoDB / Memory |
 | Multi-instance sync | Redis pub/sub | Not built-in |
 
@@ -450,14 +593,19 @@ Traditional ACL is resource-centric: each resource holds a list of subjects and 
 ```
 src/
   index.ts              — public exports
-  acl.ts                — ExpressACL class: access(), role(), lock(), resolve(),
+  acl.ts                — ACL class: access(), role(), check(), lock(), resolve(),
                           updateRole(), revokeAccess(), precomputation engine
-  middleware.ts          — authorize() middleware factory
+  core/
+    access-registry.ts  — access definitions + route mapping
+    role-registry.ts    — role definitions + hierarchy + precomputation
+    lookup.ts           — builds and holds the composite key Set (allowed, wildcardRoles, knownRoutes)
+  middleware/
+    authorize.ts        — Express authorize() middleware (thin wrapper around check())
   adapters/
-    interface.ts        — ACLAdapter interface
-    memory.ts           — MemoryAdapter (default)
-    redis.ts            — RedisAdapter (persistence + pub/sub sync)
-  types.ts              — AccessConfig, RoleConfig, AuthorizeOptions, ACLOptions
+    adapter.interface.ts — ACLAdapter interface
+    memory.adapter.ts    — MemoryAdapter (default)
+    redis.adapter.ts     — RedisAdapter (persistence + pub/sub sync)
+  types.ts              — CheckOptions, RoleConfig, AuthorizeOptions, ACLOptions
   errors.ts             — CircularHierarchyError, LockedError, DuplicateError
 tests/
   access.test.ts        — access definition, route mapping, revoke

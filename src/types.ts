@@ -27,7 +27,17 @@ export interface UpdateRoleOptions {
   removeAccesses?: string[];
 }
 
-// --- Middleware options ---
+// --- Framework-agnostic check ---
+
+export interface CheckOptions {
+  method: string;
+  path: string;
+  role?: string;
+  accesses?: string[];
+  userId?: string;
+}
+
+// --- Express middleware options ---
 
 export interface AuthorizeOptions {
   role?: (req: Request) => string | null | undefined;

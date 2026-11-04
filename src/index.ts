@@ -1,8 +1,9 @@
-export { ExpressACL } from './acl';
+export { ACL } from './acl';
 export { MemoryAdapter } from './adapters/memory.adapter';
 export type { ACLAdapter } from './adapters/adapter.interface';
 export type {
   ACLOptions,
+  CheckOptions,
   RoleDefinition,
   RoleConfig,
   UpdateRoleOptions,
