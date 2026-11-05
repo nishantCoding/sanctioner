@@ -1,4 +1,4 @@
-export { ACL } from './acl';
+export { ACLite } from './acl';
 export { MemoryAdapter } from './adapters/memory.adapter';
 export type { ACLAdapter } from './adapters/adapter.interface';
 export type {
@@ -10,7 +10,6 @@ export type {
   AuthorizeOptions,
   AccessMap,
   RoleMap,
-  UserAssignments,
 } from './types';
 export {
   CircularHierarchyError,

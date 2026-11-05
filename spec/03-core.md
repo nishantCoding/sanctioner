@@ -155,12 +155,10 @@ Builds and holds the composite key Set that the `check()` method queries. This i
 class LookupTable {
   private allowed: Set<string>;
   private wildcardRoles: Set<string>;
-  private knownRoutes: Set<string>;
 
   build(accessRegistry: AccessRegistry, roleRegistry: RoleRegistry): void;
   check(routeKey: string, roleOrAccess: string): boolean;
   isWildcard(role: string): boolean;
-  hasRoute(routeKey: string): boolean;
 }
 ```
 
@@ -169,12 +167,11 @@ class LookupTable {
 Called on every config change. Rebuilds the Set from scratch.
 
 ```
-1. Clear allowed, wildcardRoles, knownRoutes
+1. Clear allowed, wildcardRoles
 
 2. For each access in accessRegistry:
      For each route in access.routes:
        allowed.add(route + " " + accessName)     // "GET /enterprises/emps viewEmployees"
-       knownRoutes.add(route)                      // "GET /enterprises/emps"
 
 3. For each role in roleRegistry:
      If role.isWildcard:
@@ -203,8 +200,6 @@ allowed: Set {
 }
 
 wildcardRoles: Set { "superAdmin" }
-
-knownRoutes: Set { "GET /enterprises/emps", "GET /enterprises/emps/:id", "POST /clinics/emps/register-and-employ" }
 ```
 
 #### `check(routeKey, roleOrAccess)`
@@ -219,11 +214,6 @@ return this.wildcardRoles.has(role);
 ```
 O(1).
 
-#### `hasRoute(routeKey)`
-```typescript
-return this.knownRoutes.has(routeKey);
-```
-Used by `check()` to distinguish "route not registered" (→ `defaultPolicy`) from "route registered but user not allowed" (→ deny).
 
 ---
 
@@ -243,7 +233,6 @@ class ACL {
   private lookup: LookupTable;
   private adapter: ACLAdapter;
   private locked: boolean;
-  private userAssignments: Map<string, { roles?: string[]; accesses?: string[] }>;
 
   constructor(options?: ACLOptions);
 
@@ -258,13 +247,6 @@ class ACL {
 
   // Framework-agnostic authorization check
   check(options: CheckOptions): boolean;
-
-  // Managed mode: user assignments
-  async assignRole(userId: string, role: string | string[]): Promise<void>;
-  async assignAccesses(userId: string, accesses: string[]): Promise<void>;
-  async removeRole(userId: string, role: string): Promise<void>;
-  async removeUserAssignment(userId: string): Promise<void>;
-  getUserAssignment(userId: string): { roles?: string[]; accesses?: string[] } | undefined;
 
   // Lifecycle
   async load(): Promise<void>;
@@ -291,7 +273,6 @@ class ACL {
 ```typescript
 constructor(options?: ACLOptions) {
   this.options = {
-    defaultPolicy: options?.defaultPolicy ?? 'deny',
     mutable: options?.mutable ?? true,
     adapter: options?.adapter ?? new MemoryAdapter(),
   };
@@ -300,7 +281,6 @@ constructor(options?: ACLOptions) {
   this.lookup = new LookupTable();
   this.adapter = this.options.adapter;
   this.locked = !this.options.mutable;
-  this.userAssignments = new Map();
 }
 ```
 
@@ -356,47 +336,21 @@ interface CheckOptions {
 
 Logic:
 1. Build route key: `method + " " + path`
-2. If `!lookup.hasRoute(routeKey)` → return based on `defaultPolicy` (`deny` → false, `allow` → true)
-3. If `userId` provided → look up `userAssignments.get(userId)`:
-   - For each assigned role → `lookup.isWildcard(role) || lookup.check(routeKey, role)`
-   - For each assigned access → `lookup.check(routeKey, access)`
-   - Return `true` if any match → O(R + A)
-4. Else if `role` provided → `lookup.isWildcard(role) || lookup.check(routeKey, role)` → O(1)
-5. Else if `accesses` provided → `accesses.some(a => lookup.check(routeKey, a))` → O(A), each O(1)
-6. Else → `false` (no identity)
+2. If `role` provided → `lookup.isWildcard(role) || lookup.check(routeKey, role)` → O(1)
+3. Else if `accesses` provided → `accesses.some(a => lookup.check(routeKey, a))` → O(A), each O(1)
+4. Else → `false` (no identity)
+
+Not in the Set = denied. No `defaultPolicy` — deny is the only policy.
 
 `lookup.check(routeKey, x)` is a single `allowed.has(routeKey + " " + x)` — O(1).
 
 Does NOT throw — returns `false` for any invalid/missing input. This is a hot path.
-
-#### `assignRole(userId, role)` (managed mode)
-1. `guardMutable('assignRole')`
-2. Normalize `role` to array.
-3. Validate each role exists in `roleRegistry`.
-4. Merge into `userAssignments` for this userId.
-5. `await adapter.saveUserAssignment(userId, userAssignments.get(userId)!)`
-
-#### `assignAccesses(userId, accesses)` (managed mode)
-1. `guardMutable('assignAccesses')`
-2. Validate each access exists in `accessRegistry`.
-3. Merge into `userAssignments` for this userId.
-4. `await adapter.saveUserAssignment(userId, userAssignments.get(userId)!)`
-
-#### `removeUserAssignment(userId)`
-1. `guardMutable('removeUserAssignment')`
-2. `userAssignments.delete(userId)`
-3. `await adapter.removeUserAssignment(userId)`
-
-#### `getUserAssignment(userId)`
-- Returns the stored assignment for a userId, or `undefined`.
-- Used by middleware in managed mode.
 
 #### `load()`
 - Called once on startup (mainly for RedisAdapter).
 - `const data = await adapter.loadAll()`
 - `accessRegistry.loadFrom(data.accesses)`
 - `roleRegistry.loadFrom(data.roles)`
-- Load user assignments from `data.users` into `userAssignments` Map.
 - `rebuild()`
 - `await adapter.subscribe(() => this.load())` — re-load on cross-instance changes.
 
@@ -420,27 +374,6 @@ All introspection reads from the registries (source of truth), NOT the composite
 - `getRouteAccesses(routeKey)`: iterates `accessRegistry.getAll()`, collects accesses whose routes include `routeKey`
 
 All return copies (arrays), not internal references.
-
----
-
-## Method name collision: `removeRole`
-
-There are two different "remove role" operations:
-
-1. **Remove a role definition** — `acl.removeRole('staff')` — deletes the role entirely.
-2. **Remove a role from a user** (managed mode) — `acl.removeRole('user123', 'staff')` — unassigns.
-
-To avoid ambiguity, the user-facing API uses overloading by arity:
-
-```typescript
-// 1 arg: remove role definition
-await acl.removeRole('staff');
-
-// 2 args: remove role from user (managed mode)
-await acl.removeRole('user123', 'staff');
-```
-
-Implementation: check `arguments.length` or second arg type. If second arg is a string, it's a user role removal. If no second arg, it's a role definition removal.
 
 ---
 
@@ -516,10 +449,10 @@ acl.role('admin', { inherits: 'staff', accesses: ['manageEmployees'] })
 - [ ] `LookupTable.check` is O(1) via single `Set.has()` on composite key
 - [ ] `ACL` orchestrates: registry → adapter → rebuild, in that order
 - [ ] `ACL.check()` is framework-agnostic: plain strings in, boolean out
-- [ ] `check()` handles managed mode (userId lookup) and pass-through (role/accesses)
-- [ ] `check()` respects `defaultPolicy` for unregistered routes
+- [ ] `check()` handles role and accesses (always pass-through, no managed mode)
+- [ ] `check()` denies everything not in the allowed Set (deny-only policy)
 - [ ] `guardMutable` blocks all mutations when locked
 - [ ] `load()` hydrates from adapter, subscribes to changes
-- [ ] `removeRole` overloaded: 1 arg = definition removal, 2 args = user unassignment
+- [ ] `removeRole` removes a role definition
 - [ ] All public methods returning data return copies, not internal references
 - [ ] Route format validated on `access()` calls

@@ -4,7 +4,6 @@ import type { ACLAdapter } from './adapters/adapter.interface';
 // --- Constructor options ---
 
 export interface ACLOptions {
-  defaultPolicy?: 'deny' | 'allow';
   mutable?: boolean;
   adapter?: ACLAdapter;
 }
@@ -34,7 +33,6 @@ export interface CheckOptions {
   path: string;
   role?: string;
   accesses?: string[];
-  userId?: string;
 }
 
 // --- Express middleware options ---
@@ -42,7 +40,6 @@ export interface CheckOptions {
 export interface AuthorizeOptions {
   role?: (req: Request) => string | null | undefined;
   accesses?: (req: Request) => string[] | null | undefined;
-  userId?: (req: Request) => string | null | undefined;
   denied?: (req: Request, res: Response) => void;
   basePath?: string;
 }
@@ -52,5 +49,3 @@ export interface AuthorizeOptions {
 export type AccessMap = Record<string, string[]>;
 
 export type RoleMap = Record<string, RoleConfig>;
-
-export type UserAssignments = Record<string, { roles?: string[]; accesses?: string[] }>;
