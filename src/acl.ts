@@ -3,16 +3,13 @@ import { RoleRegistry } from './core/role-registry';
 import { LookupTable } from './core/lookup';
 import { MemoryAdapter } from './adapters/memory.adapter';
 import { LockedError } from './errors';
-import { createAuthorizeMiddleware } from './middleware/authorize';
 import type { ACLAdapter } from './adapters/adapter.interface';
 import type {
   ACLOptions,
   RoleDefinition,
   UpdateRoleOptions,
   CheckOptions,
-  AuthorizeOptions,
 } from './types';
-import type { RequestHandler } from 'express';
 
 export class ACLite {
   private accessRegistry: AccessRegistry;
@@ -86,12 +83,6 @@ export class ACLite {
     }
 
     return false;
-  }
-
-  // --- Express middleware ---
-
-  authorize(options: AuthorizeOptions): RequestHandler {
-    return createAuthorizeMiddleware(this, options);
   }
 
   // --- Lifecycle ---

@@ -9,7 +9,6 @@ export type {
   RoleDefinition,
   RoleConfig,
   UpdateRoleOptions,
-  AuthorizeOptions,
   AccessMap,
   RoleMap,
 } from './types';
