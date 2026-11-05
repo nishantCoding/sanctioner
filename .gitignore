@@ -4,4 +4,6 @@ coverage/
 .env
 *.tgz
 .DS_Store
-COMPARISON.md
+*.md
+!spec/**/*.md
+!README.md
