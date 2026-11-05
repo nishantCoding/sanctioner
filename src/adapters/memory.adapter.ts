@@ -32,10 +32,17 @@ export class MemoryAdapter implements ACLAdapter {
   }
 
   async loadAll(): Promise<{ accesses: AccessMap; roles: RoleMap }> {
-    return {
-      accesses: { ...this.accesses },
-      roles: { ...this.roles },
-    };
+    const accesses: AccessMap = {};
+    for (const [name, routes] of Object.entries(this.accesses)) {
+      accesses[name] = [...routes];
+    }
+
+    const roles: RoleMap = {};
+    for (const [name, config] of Object.entries(this.roles)) {
+      roles[name] = { ...config, accesses: [...config.accesses] };
+    }
+
+    return { accesses, roles };
   }
 
   async subscribe(_onChanged: () => void): Promise<void> {
