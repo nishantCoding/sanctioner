@@ -1,2 +1,2 @@
-export { createAuthorizeMiddleware } from './middleware/authorize';
+export { createAuthZMiddleware } from './middleware/authorize';
 export type { AuthorizeOptions } from './types';

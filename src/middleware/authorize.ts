@@ -2,7 +2,7 @@ import { ConfigError } from '../errors';
 import type { CheckOptions, AuthorizeOptions } from '../types';
 import type { RequestHandler } from 'express';
 
-export function createAuthorizeMiddleware(
+export function createAuthZMiddleware(
   acl: { check: (options: CheckOptions) => boolean },
   options: AuthorizeOptions,
 ): RequestHandler {

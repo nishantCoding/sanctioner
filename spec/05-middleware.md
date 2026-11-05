@@ -10,10 +10,10 @@ The Express-specific layer. A thin wrapper around the framework-agnostic `check(
 
 Exports a factory function that creates an Express middleware. The ACLite class delegates its `authorize()` method here. This keeps all Express-specific code isolated in one file.
 
-### Function: `createAuthorizeMiddleware`
+### Function: `createAuthZMiddleware`
 
 ```typescript
-function createAuthorizeMiddleware(
+function createAuthZMiddleware(
   acl: { check: (options: CheckOptions) => boolean },
   options: AuthorizeOptions,
 ): RequestHandler;
@@ -59,7 +59,7 @@ Overridden by providing `denied` in `AuthorizeOptions`.
 
 ```typescript
 authorize(options: AuthorizeOptions): RequestHandler {
-  return createAuthorizeMiddleware(this, options);
+  return createAuthZMiddleware(this, options);
 }
 ```
 
@@ -130,7 +130,7 @@ If both `role` and `accesses` extractors are provided and both return values, `c
 
 ## Checklist
 
-- [ ] `createAuthorizeMiddleware` exported from `src/middleware/authorize.ts`
+- [ ] `createAuthZMiddleware` exported from `src/middleware/authorize.ts`
 - [ ] Throws `ConfigError` at setup time if no extractor provided
 - [ ] Uses `req.route.path` (not `req.path` or `req.originalUrl`)
 - [ ] `basePath` prepended to route path

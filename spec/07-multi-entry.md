@@ -21,7 +21,7 @@ Use the `exports` field in `package.json` to provide multiple entry points from 
 import { ACLite, MemoryAdapter, RedisAdapter } from 'aclite';
 
 // Express — only if using Express
-import { createAuthorizeMiddleware } from 'aclite/express';
+import { createAuthZMiddleware } from 'aclite/express';
 ```
 
 ### Adding future frameworks
@@ -42,7 +42,7 @@ No changes to core needed. Each framework entry point imports `check()` from cor
 
 - Remove `authorize()` method from the `ACLite` class.
 - Remove `import type { RequestHandler } from 'express'`.
-- Remove `import { createAuthorizeMiddleware } from './middleware/authorize'`.
+- Remove `import { createAuthZMiddleware } from './middleware/authorize'`.
 - Remove `import type { AuthorizeOptions } from './types'`.
 
 The class becomes fully framework-agnostic.
@@ -52,7 +52,7 @@ The class becomes fully framework-agnostic.
 The Express entry point. Re-exports the middleware factory and the `AuthorizeOptions` type.
 
 ```typescript
-export { createAuthorizeMiddleware } from './middleware/authorize';
+export { createAuthZMiddleware } from './middleware/authorize';
 export type { AuthorizeOptions } from './types';
 ```
 
@@ -85,7 +85,7 @@ export {
 
 ### Update `src/middleware/authorize.ts`
 
-No code changes needed. The `createAuthorizeMiddleware` function already accepts an `acl` parameter with `{ check: (options: CheckOptions) => boolean }`. It does not depend on the ACLite class directly.
+No code changes needed. The `createAuthZMiddleware` function already accepts an `acl` parameter with `{ check: (options: CheckOptions) => boolean }`. It does not depend on the ACLite class directly.
 
 ### Update `package.json`
 
@@ -136,9 +136,9 @@ app.use(acl.authorize({ role: (req) => req.decoded.role }));
 After (standalone function):
 ```typescript
 import { ACLite } from 'aclite';
-import { createAuthorizeMiddleware } from 'aclite/express';
+import { createAuthZMiddleware } from 'aclite/express';
 const acl = new ACLite();
-app.use(createAuthorizeMiddleware(acl, { role: (req) => req.decoded.role }));
+app.use(createAuthZMiddleware(acl, { role: (req) => req.decoded.role }));
 ```
 
 ---
@@ -147,7 +147,7 @@ app.use(createAuthorizeMiddleware(acl, { role: (req) => req.decoded.role }));
 
 - [ ] `authorize()` removed from `ACLite` class
 - [ ] `ACLite` class has zero Express imports
-- [ ] `src/express.ts` exports `createAuthorizeMiddleware` and `AuthorizeOptions`
+- [ ] `src/express.ts` exports `createAuthZMiddleware` and `AuthorizeOptions`
 - [ ] `src/index.ts` no longer exports `AuthorizeOptions`
 - [ ] `package.json` `exports` field maps `.` and `./express`
 - [ ] `express` is optional peer dependency
