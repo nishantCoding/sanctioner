@@ -73,14 +73,14 @@ describe('RedisAdapter', () => {
   describe('saveAccess', () => {
     it('stores routes as JSON in accesses hash', async () => {
       await adapter.saveAccess('viewUsers', ['GET /users']);
-      const raw = await client.hget('acl.lite:accesses', 'viewUsers');
+      const raw = await client.hget('sanctioner:accesses', 'viewUsers');
       expect(JSON.parse(raw!)).toEqual(['GET /users']);
     });
 
     it('publishes change notification', async () => {
       const spy = jest.spyOn(client, 'publish');
       await adapter.saveAccess('viewUsers', ['GET /users']);
-      expect(spy).toHaveBeenCalledWith('acl.lite:channel', 'changed');
+      expect(spy).toHaveBeenCalledWith('sanctioner:channel', 'changed');
     });
   });
 
@@ -88,21 +88,21 @@ describe('RedisAdapter', () => {
     it('full removal: deletes field from hash', async () => {
       await adapter.saveAccess('viewUsers', ['GET /users']);
       await adapter.removeAccess('viewUsers');
-      const raw = await client.hget('acl.lite:accesses', 'viewUsers');
+      const raw = await client.hget('sanctioner:accesses', 'viewUsers');
       expect(raw).toBeNull();
     });
 
     it('partial removal: removes specific routes', async () => {
       await adapter.saveAccess('viewUsers', ['GET /users', 'GET /users/:id']);
       await adapter.removeAccess('viewUsers', ['GET /users/:id']);
-      const raw = await client.hget('acl.lite:accesses', 'viewUsers');
+      const raw = await client.hget('sanctioner:accesses', 'viewUsers');
       expect(JSON.parse(raw!)).toEqual(['GET /users']);
     });
 
     it('partial removal: deletes field if no routes remain', async () => {
       await adapter.saveAccess('viewUsers', ['GET /users']);
       await adapter.removeAccess('viewUsers', ['GET /users']);
-      const raw = await client.hget('acl.lite:accesses', 'viewUsers');
+      const raw = await client.hget('sanctioner:accesses', 'viewUsers');
       expect(raw).toBeNull();
     });
 
@@ -113,21 +113,21 @@ describe('RedisAdapter', () => {
     it('publishes change notification', async () => {
       const spy = jest.spyOn(client, 'publish');
       await adapter.removeAccess('viewUsers');
-      expect(spy).toHaveBeenCalledWith('acl.lite:channel', 'changed');
+      expect(spy).toHaveBeenCalledWith('sanctioner:channel', 'changed');
     });
   });
 
   describe('saveRole', () => {
     it('stores role config as JSON in roles hash', async () => {
       await adapter.saveRole('staff', { accesses: ['viewUsers'] });
-      const raw = await client.hget('acl.lite:roles', 'staff');
+      const raw = await client.hget('sanctioner:roles', 'staff');
       expect(JSON.parse(raw!)).toEqual({ accesses: ['viewUsers'] });
     });
 
     it('publishes change notification', async () => {
       const spy = jest.spyOn(client, 'publish');
       await adapter.saveRole('staff', { accesses: ['viewUsers'] });
-      expect(spy).toHaveBeenCalledWith('acl.lite:channel', 'changed');
+      expect(spy).toHaveBeenCalledWith('sanctioner:channel', 'changed');
     });
   });
 
@@ -135,14 +135,14 @@ describe('RedisAdapter', () => {
     it('deletes role from hash', async () => {
       await adapter.saveRole('staff', { accesses: ['viewUsers'] });
       await adapter.removeRole('staff');
-      const raw = await client.hget('acl.lite:roles', 'staff');
+      const raw = await client.hget('sanctioner:roles', 'staff');
       expect(raw).toBeNull();
     });
 
     it('publishes change notification', async () => {
       const spy = jest.spyOn(client, 'publish');
       await adapter.removeRole('staff');
-      expect(spy).toHaveBeenCalledWith('acl.lite:channel', 'changed');
+      expect(spy).toHaveBeenCalledWith('sanctioner:channel', 'changed');
     });
   });
 
@@ -167,13 +167,13 @@ describe('RedisAdapter', () => {
     it('subscribes to channel on subscriber client', async () => {
       const spy = jest.spyOn(subscriber, 'subscribe');
       await adapter.subscribe(() => {});
-      expect(spy).toHaveBeenCalledWith('acl.lite:channel');
+      expect(spy).toHaveBeenCalledWith('sanctioner:channel');
     });
 
     it('fires callback on message for correct channel', async () => {
       const cb = jest.fn();
       await adapter.subscribe(cb);
-      subscriber.trigger('message', 'acl.lite:channel', 'changed');
+      subscriber.trigger('message', 'sanctioner:channel', 'changed');
       expect(cb).toHaveBeenCalledTimes(1);
     });
 
@@ -201,7 +201,7 @@ describe('RedisAdapter', () => {
     it('publishes changed to channel', async () => {
       const spy = jest.spyOn(client, 'publish');
       await adapter.publish();
-      expect(spy).toHaveBeenCalledWith('acl.lite:channel', 'changed');
+      expect(spy).toHaveBeenCalledWith('sanctioner:channel', 'changed');
     });
   });
 

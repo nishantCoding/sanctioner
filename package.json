@@ -1,5 +1,5 @@
 {
-  "name": "acl.lite",
+  "name": "sanctioner",
   "version": "0.1.0",
   "description": "O(1) route-level ACL with framework-agnostic core. Access as primitive, roles as sugar, with pluggable adapters.",
   "exports": {

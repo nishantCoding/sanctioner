@@ -1,20 +1,20 @@
-# acl.lite
+# sanctioner
 
-[![npm version](https://img.shields.io/npm/v/acl.lite.svg)](https://www.npmjs.com/package/acl.lite)
-[![license](https://img.shields.io/npm/l/acl.lite.svg)](https://github.com/user/acl.lite/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/sanctioner.svg)](https://www.npmjs.com/package/sanctioner)
+[![license](https://img.shields.io/npm/l/sanctioner.svg)](https://github.com/user/sanctioner/blob/main/LICENSE)
 
 O(1) route-level access control for Node.js. Framework-agnostic core with middleware for Express, Fastify, and Hono.
 
 ## Install
 
 ```bash
-npm install acl.lite
+npm install sanctioner
 ```
 
 ## Quick Start
 
 ```typescript
-import { ACLite } from 'acl.lite';
+import { ACLite } from 'sanctioner';
 
 const acl = new ACLite();
 
@@ -69,8 +69,8 @@ npm install express
 ```
 
 ```typescript
-import { ACLite } from 'acl.lite';
-import { createAuthZMiddleware } from 'acl.lite/express';
+import { ACLite } from 'sanctioner';
+import { createAuthZMiddleware } from 'sanctioner/express';
 
 const acl = new ACLite();
 await acl.access('viewUsers', ['GET /users']);
@@ -91,8 +91,8 @@ npm install fastify
 ```
 
 ```typescript
-import { ACLite } from 'acl.lite';
-import { createAuthZHook } from 'acl.lite/fastify';
+import { ACLite } from 'sanctioner';
+import { createAuthZHook } from 'sanctioner/fastify';
 
 const acl = new ACLite();
 await acl.access('viewUsers', ['GET /users']);
@@ -113,8 +113,8 @@ npm install hono
 ```
 
 ```typescript
-import { ACLite } from 'acl.lite';
-import { createAuthZMiddleware } from 'acl.lite/hono';
+import { ACLite } from 'sanctioner';
+import { createAuthZMiddleware } from 'sanctioner/hono';
 
 const acl = new ACLite();
 await acl.access('viewUsers', ['GET /users']);
@@ -186,7 +186,7 @@ npm install ioredis
 
 ```typescript
 import Redis from 'ioredis';
-import { ACLite, RedisAdapter } from 'acl.lite';
+import { ACLite, RedisAdapter } from 'sanctioner';
 
 const redis = new Redis();
 const subscriber = new Redis(); // separate connection for pub/sub
@@ -194,7 +194,7 @@ const subscriber = new Redis(); // separate connection for pub/sub
 const adapter = new RedisAdapter({
   client: redis,
   subscriber,
-  prefix: 'myapp:acl:', // optional, defaults to 'acl.lite:'
+  prefix: 'myapp:acl:', // optional, defaults to 'sanctioner:'
 });
 
 const acl = new ACLite({ adapter });
