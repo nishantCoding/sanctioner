@@ -20,7 +20,7 @@ export function createAuthZHook(
   const denied = options.denied ?? ((_req, reply) => reply.code(403).send({ error: 'Forbidden' }));
   const basePath = options.basePath ?? '';
 
-  return (req, reply) => {
+  return async (req, reply) => {
     const routePath = basePath + (req.routeOptions.url ?? '');
     const role = options.role?.(req) ?? undefined;
     const accesses = options.accesses?.(req) ?? undefined;
