@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
-import { ACLite } from '../src/acl';
+import { Sanctioner } from '../src/acl';
 import { createAuthZMiddleware } from '../src/middleware/hono';
 
 describe('Hono middleware', () => {
-  let acl: ACLite;
+  let acl: Sanctioner;
 
   beforeAll(async () => {
-    acl = new ACLite();
+    acl = new Sanctioner();
     await acl.access('viewUsers', ['GET /users']);
     await acl.access('manageUsers', ['POST /users']);
     await acl.role('staff', ['viewUsers']);

@@ -14,9 +14,9 @@ npm install sanctioner
 ## Quick Start
 
 ```typescript
-import { ACLite } from 'sanctioner';
+import { Sanctioner } from 'sanctioner';
 
-const acl = new ACLite();
+const acl = new Sanctioner();
 
 // Define accesses (named permissions → routes)
 await acl.access('viewUsers', ['GET /users', 'GET /users/:id']);
@@ -69,10 +69,10 @@ npm install express
 ```
 
 ```typescript
-import { ACLite } from 'sanctioner';
+import { Sanctioner } from 'sanctioner';
 import { createAuthZMiddleware } from 'sanctioner/express';
 
-const acl = new ACLite();
+const acl = new Sanctioner();
 await acl.access('viewUsers', ['GET /users']);
 await acl.role('staff', ['viewUsers']);
 
@@ -91,10 +91,10 @@ npm install fastify
 ```
 
 ```typescript
-import { ACLite } from 'sanctioner';
+import { Sanctioner } from 'sanctioner';
 import { createAuthZHook } from 'sanctioner/fastify';
 
-const acl = new ACLite();
+const acl = new Sanctioner();
 await acl.access('viewUsers', ['GET /users']);
 await acl.role('staff', ['viewUsers']);
 
@@ -113,10 +113,10 @@ npm install hono
 ```
 
 ```typescript
-import { ACLite } from 'sanctioner';
+import { Sanctioner } from 'sanctioner';
 import { createAuthZMiddleware } from 'sanctioner/hono';
 
-const acl = new ACLite();
+const acl = new Sanctioner();
 await acl.access('viewUsers', ['GET /users']);
 await acl.role('staff', ['viewUsers']);
 
@@ -186,7 +186,7 @@ npm install ioredis
 
 ```typescript
 import Redis from 'ioredis';
-import { ACLite, RedisAdapter } from 'sanctioner';
+import { Sanctioner, RedisAdapter } from 'sanctioner';
 
 const redis = new Redis();
 const subscriber = new Redis(); // separate connection for pub/sub
@@ -197,7 +197,7 @@ const adapter = new RedisAdapter({
   prefix: 'myapp:acl:', // optional, defaults to 'sanctioner:'
 });
 
-const acl = new ACLite({ adapter });
+const acl = new Sanctioner({ adapter });
 
 // Hydrate from Redis + subscribe to changes from other instances
 await acl.load();
@@ -207,11 +207,11 @@ When any instance mutates ACL data, it publishes a change notification. All othe
 
 ## API Reference
 
-### ACLite
+### Sanctioner
 
 | Method | Description |
 |---|---|
-| `new ACLite(options?)` | Create instance. Options: `{ adapter?, mutable? }` |
+| `new Sanctioner(options?)` | Create instance. Options: `{ adapter?, mutable? }` |
 | `access(name, routes)` | Register a named access with route patterns |
 | `revokeAccess(name, routes?)` | Remove an access entirely, or remove specific routes |
 | `role(name, definition)` | Register a role. Definition: `string[]`, `{ inherits?, accesses? }`, or `'*'` |

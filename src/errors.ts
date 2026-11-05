@@ -7,7 +7,7 @@ export class CircularHierarchyError extends Error {
 
 export class LockedError extends Error {
   constructor(method: string) {
-    super(`Cannot call ${method}() on a locked ACLite instance`);
+    super(`Cannot call ${method}() on a locked Sanctioner instance`);
     this.name = 'LockedError';
   }
 }

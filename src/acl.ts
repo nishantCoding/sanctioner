@@ -5,20 +5,20 @@ import { MemoryAdapter } from './adapters/memory.adapter';
 import { LockedError } from './errors';
 import type { ACLAdapter } from './adapters/adapter.interface';
 import type {
-  ACLOptions,
+  SanctionerOptions,
   RoleDefinition,
   UpdateRoleOptions,
   CheckOptions,
 } from './types';
 
-export class ACLite {
+export class Sanctioner {
   private accessRegistry: AccessRegistry;
   private roleRegistry: RoleRegistry;
   private lookup: LookupTable;
   private adapter: ACLAdapter;
   private locked: boolean;
 
-  constructor(options?: ACLOptions) {
+  constructor(options?: SanctionerOptions) {
     this.adapter = options?.adapter ?? new MemoryAdapter();
     this.locked = !(options?.mutable ?? true);
     this.accessRegistry = new AccessRegistry();

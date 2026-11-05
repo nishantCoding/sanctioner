@@ -1,12 +1,12 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { ACLite } from '../src/acl';
+import { Sanctioner } from '../src/acl';
 import { createAuthZHook } from '../src/middleware/fastify';
 
 describe('Fastify middleware', () => {
-  let acl: ACLite;
+  let acl: Sanctioner;
 
   beforeAll(async () => {
-    acl = new ACLite();
+    acl = new Sanctioner();
     await acl.access('viewUsers', ['GET /users']);
     await acl.access('manageUsers', ['POST /users']);
     await acl.role('staff', ['viewUsers']);

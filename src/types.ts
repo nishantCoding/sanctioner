@@ -3,7 +3,7 @@ import type { ACLAdapter } from './adapters/adapter.interface';
 
 // --- Constructor options ---
 
-export interface ACLOptions {
+export interface SanctionerOptions {
   mutable?: boolean;
   adapter?: ACLAdapter;
 }

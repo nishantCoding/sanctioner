@@ -82,10 +82,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nishantCoding/aclite.git"
+    "url": "git+https://github.com/nishantCoding/sanctioner.git"
   },
-  "homepage": "https://github.com/nishantCoding/aclite#readme",
+  "homepage": "https://github.com/nishantCoding/sanctioner#readme",
   "bugs": {
-    "url": "https://github.com/nishantCoding/aclite/issues"
+    "url": "https://github.com/nishantCoding/sanctioner/issues"
   }
 }

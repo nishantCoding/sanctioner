@@ -1,13 +1,13 @@
 import express from 'express';
 import request from 'supertest';
-import { ACLite } from '../src/acl';
+import { Sanctioner } from '../src/acl';
 import { createAuthZMiddleware } from '../src/middleware/authorize';
 
 describe('Express middleware', () => {
-  let acl: ACLite;
+  let acl: Sanctioner;
 
   beforeAll(async () => {
-    acl = new ACLite();
+    acl = new Sanctioner();
     await acl.access('viewUsers', ['GET /users']);
     await acl.access('manageUsers', ['POST /users']);
     await acl.role('staff', ['viewUsers']);

@@ -1,11 +1,11 @@
-import { ACLite } from '../src/acl';
+import { Sanctioner } from '../src/acl';
 import { DuplicateError, LockedError, ConfigError } from '../src/errors';
 
-describe('ACLite', () => {
-  let acl: ACLite;
+describe('Sanctioner', () => {
+  let acl: Sanctioner;
 
   beforeEach(() => {
-    acl = new ACLite();
+    acl = new Sanctioner();
   });
 
   describe('access()', () => {
@@ -143,7 +143,7 @@ describe('ACLite', () => {
     });
 
     it('mutable: false starts locked from construction', async () => {
-      const locked = new ACLite({ mutable: false });
+      const locked = new Sanctioner({ mutable: false });
       await expect(locked.access('x', ['GET /x'])).rejects.toThrow(LockedError);
     });
 
@@ -167,16 +167,16 @@ describe('ACLite', () => {
       await acl.access('viewEmployees', ['GET /emps']);
       await acl.role('staff', ['viewEmployees']);
 
-      // Create new ACLite with same adapter (MemoryAdapter retains data)
+      // Create new Sanctioner with same adapter (MemoryAdapter retains data)
       // Simulate by using load on a fresh instance with pre-populated adapter
-      const acl2 = new ACLite();
+      const acl2 = new Sanctioner();
       await acl2.access('viewEmployees', ['GET /emps']);
       await acl2.role('staff', ['viewEmployees']);
 
       // Create third instance, load from acl2's adapter won't work
       // because each instance has its own MemoryAdapter.
       // Instead, test that load() works by checking state after load.
-      const acl3 = new ACLite();
+      const acl3 = new Sanctioner();
       // Manually populate via access/role, then verify check works
       await acl3.access('testAccess', ['GET /test']);
       await acl3.role('testRole', ['testAccess']);
