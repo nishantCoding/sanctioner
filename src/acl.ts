@@ -2,7 +2,8 @@ import { AccessRegistry } from './core/access-registry';
 import { RoleRegistry } from './core/role-registry';
 import { LookupTable } from './core/lookup';
 import { MemoryAdapter } from './adapters/memory.adapter';
-import { ConfigError, LockedError } from './errors';
+import { LockedError } from './errors';
+import { createAuthorizeMiddleware } from './middleware/authorize';
 import type { ACLAdapter } from './adapters/adapter.interface';
 import type {
   ACLOptions,
@@ -90,21 +91,7 @@ export class ACLite {
   // --- Express middleware ---
 
   authorize(options: AuthorizeOptions): RequestHandler {
-    if (!options.role && !options.accesses) {
-      throw new ConfigError('authorize() requires at least one of: role, accesses');
-    }
-
-    const denied = options.denied ?? ((_req, res) => res.status(403).json({ error: 'Forbidden' }));
-    const basePath = options.basePath ?? '';
-
-    return (req, res, next) => {
-      const routePath = basePath + req.route.path;
-      const role = options.role?.(req) ?? undefined;
-      const accesses = options.accesses?.(req) ?? undefined;
-
-      const allowed = this.check({ method: req.method, path: routePath, role, accesses });
-      allowed ? next() : denied(req, res);
-    };
+    return createAuthorizeMiddleware(this, options);
   }
 
   // --- Lifecycle ---
