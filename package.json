@@ -1,5 +1,5 @@
 {
-  "name": "aclite",
+  "name": "acl-lite",
   "version": "0.1.0",
   "description": "O(1) route-level ACL with framework-agnostic core. Access as primitive, roles as sugar, with pluggable adapters.",
   "exports": {
@@ -69,12 +69,23 @@
   "keywords": [
     "acl",
     "access-control",
-    "express",
-    "middleware",
     "authorization",
     "roles",
     "permissions",
-    "o1"
+    "middleware",
+    "express",
+    "fastify",
+    "hono",
+    "rbac"
   ],
-  "license": "MIT"
+  "author": "nishantCoding",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nishantCoding/aclite.git"
+  },
+  "homepage": "https://github.com/nishantCoding/aclite#readme",
+  "bugs": {
+    "url": "https://github.com/nishantCoding/aclite/issues"
+  }
 }

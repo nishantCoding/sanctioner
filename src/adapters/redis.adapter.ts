@@ -26,7 +26,7 @@ export class RedisAdapter implements ACLAdapter {
   constructor(options: RedisAdapterOptions) {
     this.client = options.client;
     this.subscriber = options.subscriber;
-    this.prefix = options.prefix ?? 'aclite:';
+    this.prefix = options.prefix ?? 'acl-lite:';
   }
 
   async saveAccess(name: string, routes: string[]): Promise<void> {
